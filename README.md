@@ -1,8 +1,8 @@
 # AI Highlight Clipper (v1.1.9)
 
-An automated, event-driven video processing pipeline. This software ingests long-form tournament footage, utilizes a custom YOLOv8 model to detect combat phases, and automatically cuts highlight clips using Luigi and FFmpeg. 
+An automated, event-driven video processing pipeline. This software ingests long-form tournament footage and utilizes a custom YOLOv8 model to automatically cut match clips using Luigi and FFmpeg. 
 
-**If you are looking for a ready-to-run app; download, unzip, and run the .exe: **
+**If you are looking for a ready-to-run app; download, unzip, and run the .exe:**
 
 ## System Requirements
 * **OS:** Windows 10/11
@@ -37,7 +37,7 @@ python app.py
 \`\`\`
 To compile a standalone executable, run:
 \`\`\`bash
-pyinstaller --noconfirm --onedir --console --collect-all pyspark --collect-all ultralytics --name "Judo_AI_Clipper_v1.1.9" app.py
+pyinstaller --noconfirm --onedir --console --collect-all pyspark --collect-all ultralytics --name "Judo_Match_Clipper_vx.x.x" app.py
 \`\`\`
 
 # Original README and Note
