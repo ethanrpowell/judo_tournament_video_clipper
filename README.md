@@ -8,17 +8,17 @@ An automated, event-driven video processing pipeline. This software ingests long
 
 ### 1. Clone the Repository
 Ensure you use the `.git` clone URL provided by GitHub's code button, rather than copying the browser window title URL.
-\`\`\`bash
+```bash
 git clone https://github.com/ethanrpowell/judo_tournament_video_clipper
 cd judo_tournament_video_clipper
-\`\`\`
+```
 
 ### 2. Configure the Environment
-\`\`\`bash
+```bash
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
-\`\`\`
+```
 
 ### 3. Install FFmpeg
 The pipeline relies on FFmpeg for frame extraction and lossless video clipping.
@@ -27,19 +27,93 @@ The pipeline relies on FFmpeg for frame extraction and lossless video clipping.
 
 ### 4. Execution
 With the environment activated and binaries in place, launch the UI natively:
-\`\`\`bash
+```bash
 python app.py
-\`\`\`
+```
 To compile a standalone executable, run:
-\`\`\`bash
+```bash
 pyinstaller --noconfirm --onedir --console --collect-all pyspark --collect-all ultralytics --name "Judo_Match_Clipper_vx.x.x" app.py
-\`\`\`
+```
+The executable is located in the `\dist` directory of the project folder.
 
-# Original README and Note
+---
 
-The following section contains out of date information regarding the function of the software but it is still recommended reading before building on top of the current work. This section includes the work of the original creators of the program and will help to understand the function and how we arrived at the current version of the program.
+## System Architecture & Development Guide
 
-## judo-footage-analysis
+This section outlines the application's internal architecture, script interactions, and guidelines for future development and compilation.
+
+### 1. High-Level Architecture Overview
+
+The application is structured into three primary layers:
+1. **Presentation Layer (`app.py`):** A PyQt/PySide-based graphical user interface that captures user configuration, handles standard output redirection (displaying terminal logs in the UI), and spawns the pipeline as an independent subprocess.
+2. **Orchestration Layer (`end_to_end_pipeline.py`):** A Luigi-based task scheduler that manages the dependency graph of the video processing pipeline. It ensures tasks execute sequentially and handles state management.
+3. **Execution Layer (`judo_footage_analysis/` & `scripts/`):** A collection of independent Python scripts that perform the actual I/O operations, video manipulation (FFmpeg), and machine learning inference (YOLOv8).
+
+### 2. Pipeline Task Flow (Luigi Orchestrator)
+
+The core pipeline (`end_to_end_pipeline.py`) consists of six sequential Luigi tasks. A downstream task will not initiate until its upstream dependencies emit a success state.
+
+* **Task 1: Format Video:** Standardizes the raw input video (e.g., `.flv` to `.mp4`) to ensure consistent framerates and encoding for the AI model.
+* **Task 2: Segment Videos (`truncate_videos.py`):** Utilizes `imageio_ffmpeg` and `ffmpeg.exe` to slice long tournament files into 10-minute (600-second) chunks to prevent memory overflow during inference.
+* **Task 3: Extract Frames:** Pulls specific frames from the segments for isolated processing.
+* **Task 4: Generate Manifest (`generate_combat_json.py`):** Creates a structured JSON manifest tracking file paths and metadata for the ML model.
+* **Task 5: Run AI Analysis (`extract_combat_phases.py`):** Ingests the manifest and runs YOLOv8 inference to detect combat phases, outputting timestamps. 
+* **Task 6: Consolidate and Clip:** Reads the AI timestamp outputs and triggers FFmpeg to cut the final highlight clips losslessly.
+
+### 3. Script Interaction & Dynamic Execution
+
+To keep the ML repository (`judo_footage_analysis`) decoupled from the UI orchestrator, `end_to_end_pipeline.py` executes the execution layer scripts dynamically using `runpy.run_path()`. 
+
+**Execution Flow Example (Task 5):**
+1. Luigi initiates Task 5.
+2. The orchestrator overrides `sys.argv` with the required CLI arguments (e.g., `--project-json`, `--output-dir`).
+3. `sys.path.insert(0, os.path.abspath("."))` forces the Python environment to recognize the external folders.
+4. `runpy.run_path("judo_footage_analysis/workflow/extract_combat_phases.py")` executes the script in the current memory space.
+5. Upon successful exit code (0), Luigi writes a `Done` flag to the local cache and proceeds to Task 6.
+
+### 4. Developer Guide
+
+When modifying the pipeline or updating the application, adhere to the following constraints to prevent breaking the PyInstaller build.
+
+#### A. Dependency Management & "Dummy Imports"
+Because the orchestrator uses `runpy.run_path()` to execute external scripts dynamically, PyInstaller's static analyzer cannot see the third-party libraries used inside `judo_footage_analysis/` or `scripts/`. 
+
+If you add a new library (e.g., `import pandas`) to any external script, you **must** add a corresponding "dummy import" to the top of `end_to_end_pipeline.py`:
+
+```python
+# end_to_end_pipeline.py
+import pandas  # Required for PyInstaller to bundle the dependency
+```
+
+#### B. Multiprocessing Constraints (Windows Fork Bomb)
+Windows lacks a native `fork()` command. Attempting to use Python's `multiprocessing` library to parallelize Luigi tasks or video segmentation will cause the compiled `.exe` to recursively spawn duplicate GUI windows, crashing the system.
+* Ensure `multiprocessing.freeze_support()` remains immediately after `if __name__ == "__main__":` in `app.py`.
+* Ensure all Luigi build commands within external scripts (e.g., `truncate_videos.py`) explicitly set `workers=1` and `local_scheduler=True`.
+
+#### C. Compiling the Executable
+When building a new release, you must instruct PyInstaller to collect the hidden data files (`.json`, `.txt`) associated with heavy libraries like PySpark and Ultralytics.
+
+1. Delete existing `build/`, `dist/` directories, and the `.spec` file.
+2. Run the compilation command:
+
+```bash
+pyinstaller --noconfirm --onedir --console --collect-all pyspark --collect-all ultralytics --name "Judo_AI_Clipper_vX.X.X" app.py
+```
+*(Note:`--windowed` may be used instead of `--console` to prevent a separate console window opening when using the GUI.*
+
+3. After compilation, manually copy the following assets into the new `dist/Judo_Match_Clipper_vx.x.x/` directory:
+    * `scripts/`
+    * `judo_footage_analysis/`
+    * `yolov8_custom.pt`
+    * `ffmpeg.exe` and `ffprobe.exe` (Place inside `_internal/`)
+
+
+---
+# Original README and Note (Out of Date)
+
+**The following section contains out of date information** regarding the function of the software but it is still recommended reading before building on top of the current work. This section includes the work of the original creators of the program and will help to understand the function and how we arrived at the current version of the program.
+
+### judo-footage-analysis
 
 This repository is work supporting "Semi-Supervised Extraction and Analysis of Judo Combat Phases
 from Recorded Live-Streamed Tournament Footage".
@@ -47,7 +121,7 @@ The goal of the project is to automate live-stream recording segmentation into i
 
 This project was done as part of CS8813 Introduction to Research at Georgia Tech Europe during the Spring 2024 semester.
 
-## quickstart
+### quickstart
 
 Checkout the repo and install any dependencies you may need to a virtual environment:
 
@@ -66,7 +140,7 @@ Install any of the relevant tools for running workflows:
 - b2-tools
 - google-cloud-sdk
 
-### running a workflow
+#### running a workflow
 
 Most of the data processing workflows are written as [luigi](https://github.com/spotify/luigi) scripts under the [judo_footage_analysis/workflow](./judo_footage_analysis/workflow) module.
 These can be run as follows:
@@ -82,14 +156,14 @@ python -m judo_footage_analysis.workflow.{module_name}
 You can watch the progress of a job in the terminal or from the luigi web-ui at http://localhost:8082.
 
 
-## Conversion of the Provided MKV File to Mp4
+### Conversion of the Provided MKV File to Mp4
 
 This project uses FFmpeg, provided through the Python Package
 imageio-ffmpeg, bundles a local FFmpeg binary inside the virtual environment
 This allows video processing without installing the python package on your OS
 
 
-### Activating the Virtual Environment
+#### Activating the Virtual Environment
 *If your virtual environment is already active skip this step*
 ```bash
 .\.venv\Scripts\Activate
@@ -98,13 +172,13 @@ Once active, the prompt should look like:
 
 `(.venv) PS C:\path\to\project`
 
-### Locating the FFmpeg Binary inside the venv
+#### Locating the FFmpeg Binary inside the venv
 
 The following command prints the full path for FFmpeg executable to access it
 ```bash
 python -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())"
 ```
-### Converting MKV to MP4 Using the venv FFmpeg
+#### Converting MKV to MP4 Using the venv FFmpeg
 
 Use the full FFmpeg path obtained above:
 
@@ -118,7 +192,7 @@ Use the full FFmpeg path obtained above:
 Once you have the full FFmpeg path from Step 2, you can use it to run a conversion command. 
 Because PowerShell cannot run executables with spaces in their path directly, we use `&` to invoke the executable.
 
-## Setting the Output Folder for the Frames
+### Setting the Output Folder for the Frames
 This project allows extraction of frames from videos for further analysis. You can configure where these frames are saved, either using a default folder or specifying a custom location.
 By default, frames are saved in folder relative to the input video "output_frames"
 
@@ -142,10 +216,10 @@ python -m judo_footage_analysis.workflow.extract_frames \
 ```
 This allows you to control where the output of the frames go.
 
-## Automatic FLV to MP4 Conversion (FLV File Provided by Eugene)
+### Automatic FLV to MP4 Conversion (FLV File Provided by Eugene)
 The project includes a Python script to automatically convert FLV files to MP4. The script lives inside the repository, so you can run it directly from your project terminal
 
-### Running the Script
+#### Running the Script
 Open your terminal and turn on your virtual environment
 ```
 .\.venv\Scripts\Activate
@@ -161,7 +235,7 @@ The script will do the following:
 
 *NOTE: This script will only pick up your FLV Video File inside your Desktop and it should be outside the folder directly on the Desktop*
 
-### Video Segmentation of the Converted MP4 File
+#### Video Segmentation of the Converted MP4 File
 After converting to MP4, you can segment a long video into individual Judo matches using the `truncate_videos.py` workflow
 ```bash
 python -m judo_footage_analysis.workflow.truncate_videos `
@@ -178,7 +252,7 @@ What each variable means:
 
 Output will be MP4 files in the specified output folder ready for frame extraction.
 
-## Frame Extraction
+### Frame Extraction
 Frames can be extracted from segmented videos for further analysis of each fight:
 ```bash
 from judo_footage_analysis.frame_extraction import extract_frames
@@ -195,7 +269,7 @@ python -m judo_footage_analysis.workflow.extract_frames \
     --video "videos/match1.mp4" \
     --output_folder "frames/match1_frames"
 ```
-## Generating the Project JSON (Required for Later Workflows)
+### Generating the Project JSON (Required for Later Workflows)
 Some workflows in this repository require a JSON file listing all videos to be processed.
 To simplify this step, a script is included to automatically create this JSON file.
 
@@ -210,8 +284,8 @@ python scripts\generate_video_json.py
 ```bash
 judo-footage-analysis-main/data/combat_phase/project.json
 ```
-## Combat Phase Extraction
-### Install dependencies
+### Combat Phase Extraction
+#### Install dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -229,7 +303,7 @@ This workflow does the following:
 - Pose or motion feature extraction (depending on model)
 - Semi-supervised classification of combat phases
 
-## Video Segmentation
+### Video Segmentation
 After converting your livestream recording to MP4, you can segment the long file into individual Judo matches using the `truncate_videos` Luigi workflow.
 
 This workflow cuts the video into fixed-length segments (10 minutes each) and saves them to an output folder.
@@ -263,7 +337,7 @@ They will keep on appearing until the segmenting is complete. If you want longer
 Segments will appear one by one in your `segmented_matches/` folder as they finish and with it finishing it'll issue a _SUCCESS file which'll confirm that the segmenting is done.
 
 
-## Combat Phase Extraction (Machine Learning)
+### Combat Phase Extraction (Machine Learning)
 
 This workflow uses a YOLOv8 object detection model to analyze judo matches and classify combat into Tachi-waza (standing) or Ne-waza (groundwork) based on athlete bounding box statistics.
 
@@ -302,6 +376,7 @@ The final step generates the research metrics.
 ```bash
 python scripts/analyze_and_visualize.py --input-file "data/tournament_master_log.csv" --output-file "data/intensity_mapped_results.csv"
 ```
+
 *The Output*
 
 `intensity_mapped_results.png`
