@@ -25,7 +25,7 @@ class ExtractCombatPhases(luigi.Task):
 
         # 2. Load the YOLOv8 model
         # It will auto-download 'yolov8n.pt' on the first run
-        model = YOLO('yolov8n.pt')
+        model = YOLO('judo_custom_v3.pt')
 
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
@@ -58,8 +58,12 @@ class ExtractCombatPhases(luigi.Task):
 
                 # Sample every 30 frames (approx 1 frame per second)
                 if frame_count % 30 == 0:
-                    # ML Inference
-                    results = model(frame, verbose=False)[0]
+                   # ML Inference
+                    results = model(frame, conf=0.15, verbose=False)[0]
+
+                    # NEW LOGIC: Check if Match_Start (Class ID 1) is detected
+                    classes_in_frame = results.boxes.cls.cpu().tolist()
+                    bow_detected = (1.0 in classes_in_frame) or (1 in classes_in_frame)
 
                     # Classify if the frame is Standing (Tachi-waza) or Groundwork (Ne-waza)
                     phase = self.classify_phase(results.boxes)
@@ -67,7 +71,8 @@ class ExtractCombatPhases(luigi.Task):
                     results_data.append({
                         "timestamp": frame_count / 30,
                         "phase": phase,
-                        "detections": len(results.boxes)
+                        "detections": len(results.boxes),
+                        "bow_detected": bow_detected  # Added to the CSV log
                     })
 
                 frame_count += 1

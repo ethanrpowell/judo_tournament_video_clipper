@@ -2,62 +2,76 @@
 Workflow for sampling frames from livestream judo videos.
 
 This script truncates videos into smaller segments for analysis.
-It uses FFmpeg via a local binary (FFmpeg 8.0.1) to avoid admin issues.
+It uses imageio-ffmpeg to locate the binary and bypasses the need for ffprobe.
 """
 
 from argparse import ArgumentParser
 from pathlib import Path
 import os
 import math
-
+import subprocess
+import re
 import ffmpeg
 import luigi
+import imageio_ffmpeg
 from judo_footage_analysis.utils import ensure_path
 
-# --- Use local FFmpeg 8.0.1 binaries ---
-FFMPEG_BIN_DIR = r"C:\Users\v5karthi\Desktop\ffmpeg-8.0.1-essentials_build\bin"
-FFMPEG_PATH = os.path.join(FFMPEG_BIN_DIR, "ffmpeg.exe")
-FFPROBE_PATH = os.path.join(FFMPEG_BIN_DIR, "ffprobe.exe")
+# --- CONFIGURATION: Locate FFmpeg Binary ---
+FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
+print(f"Using FFmpeg: {FFMPEG_PATH}")
+# -------------------------------------------
 
-# Add bin folder to PATH so ffmpeg-python can find it
-os.environ["PATH"] += os.pathsep + FFMPEG_BIN_DIR
-# --------------------------------------------------
-
+def get_duration_ffmpeg(video_path, ffmpeg_path):
+    """
+    Retrieves video duration using ffmpeg instead of ffprobe.
+    """
+    cmd = [ffmpeg_path, "-i", str(video_path)]
+    # ffmpeg prints file info to stderr
+    result = subprocess.run(
+        cmd, 
+        stdout=subprocess.PIPE, 
+        stderr=subprocess.PIPE, 
+        text=True,
+        encoding='utf-8',
+        errors='replace'
+    )
+    
+    # Regex to extract 'Duration: 00:00:00.00'
+    match = re.search(r"Duration: (\d{2}):(\d{2}):(\d{2}\.\d+)", result.stderr)
+    if match:
+        hours, minutes, seconds = match.groups()
+        total_seconds = float(hours) * 3600 + float(minutes) * 60 + float(seconds)
+        return total_seconds
+    
+    raise ValueError(f"Could not extract duration from video: {video_path}")
 
 class TruncateVideos(luigi.Task):
     input_path = luigi.Parameter()
-    output_root = luigi.Parameter()  # Root folder for all segments
+    output_root = luigi.Parameter()
     output_prefix = luigi.Parameter(default="match")
 
-    offset = luigi.IntParameter(default=0)       # seconds to skip at start
-    duration = luigi.IntParameter(default=600)   # default 10 minutes per clip
-    clips_per_folder = luigi.IntParameter(default=6)  # number of clips per folder
+    offset = luigi.IntParameter(default=0)
+    duration = luigi.IntParameter(default=600)
+    clips_per_folder = luigi.IntParameter(default=6)
 
     @property
     def output_path(self):
-        """Folder where video segments will be saved."""
         base_name = Path(self.input_path).stem
         return Path(self.output_root) / f"{self.output_prefix}_{base_name}"
 
     def output(self):
-        """Dummy output for Luigi task completion."""
         return luigi.LocalTarget(self.output_path / "_SUCCESS")
 
     def run(self):
-        """Truncate input video into segments."""
-        # Ensure output path exists
         out_dir = ensure_path(self.output_path)
 
-        # Get video duration
+        # FIX: Use custom function to get duration via ffmpeg.exe
         try:
-            probe = ffmpeg.probe(self.input_path, cmd=FFPROBE_PATH)
-            total_duration = int(float(probe["format"]["duration"]))
-        except ffmpeg.Error as e:
-            print("FFprobe error:")
-            print(e.stderr.decode())
+            total_duration = get_duration_ffmpeg(self.input_path, FFMPEG_PATH)
+        except Exception as e:
+            print(f"Error getting duration: {e}")
             raise
 
-        # Calculate how many truncations to do
         truncations = max(1, math.ceil(total_duration / self.duration))
 
         for i in range(truncations):
@@ -74,28 +88,28 @@ class TruncateVideos(luigi.Task):
                 )
             except ffmpeg.Error as e:
                 print(f"FFmpeg failed for segment {i}:")
-                print(e.stderr.decode())
+                if e.stderr:
+                    print(e.stderr.decode())
                 raise
 
-        # Write _SUCCESS file
         with self.output().open("w") as f:
             f.write("")
-
 
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument("--input-root-path", type=str, required=True)
     parser.add_argument("--output-root-path", type=str, required=True)
     parser.add_argument("--output-prefix", type=str, default="match")
-    parser.add_argument("--duration", type=int, default=600, help="Duration in seconds (default 10 mins)")
-    parser.add_argument("--clips-per-folder", type=int, default=6, help="Number of clips per folder")
+    parser.add_argument("--duration", type=int, default=600)
+    parser.add_argument("--clips-per-folder", type=int, default=6)
     parser.add_argument("--num-workers", type=int, default=4)
     return parser.parse_args()
 
-
 if __name__ == "__main__":
     args = parse_args()
-    videos = sorted(Path(args.input_root_path).glob("*.mp4"))
+    # Case-insensitive check for .mp4 files
+    videos = [p for p in Path(args.input_root_path).glob("*") if p.suffix.lower() == ".mp4"]
+    videos = sorted(videos)
 
     tasks = []
     for v in videos:
@@ -109,8 +123,4 @@ if __name__ == "__main__":
             )
         )
 
-    luigi.build(
-        tasks,
-        workers=args.num_workers,
-        local_scheduler=True,
-    )
+    luigi.build(tasks, workers=1, local_scheduler=True)

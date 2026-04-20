@@ -12,3 +12,32 @@ venv/
 .venv/
 .vscode/
 *.db
+
+# Virtual Environments
+venv/
+env/
+
+# PyInstaller Build Folders
+build/
+dist/
+*.spec
+
+# Machine Learning Models
+*.pt
+
+# Data and Video Folders
+Judo_Pipeline/
+01_Raw_Input/
+02_Converted/
+03_Segmented/
+04_Frames/
+05_Results/
+06_Final_Clips/
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Local Executables
+ffmpeg.exe
+ffprobe.exe
