@@ -1,4 +1,50 @@
-# judo-footage-analysis
+# AI Highlight Clipper (v1.1.9)
+
+An automated, event-driven video processing pipeline. This software ingests long-form tournament footage, utilizes a custom YOLOv8 model to detect combat phases, and automatically cuts highlight clips using Luigi and FFmpeg. 
+
+**If you are looking for a ready-to-run app; download, unzip, and run the .exe: **
+
+## System Requirements
+* **OS:** Windows 10/11
+* **Python:** 3.9+
+* **Hardware:** NVIDIA GPU (minimum 8GB VRAM) recommended for PyTorch/YOLO inference.
+
+## Setup Instructions
+
+### 1. Clone the Repository
+Ensure you use the `.git` clone URL provided by GitHub's code button, rather than copying the browser window title URL.
+\`\`\`bash
+git clone https://github.com/ethanrpowell/judo_tournament_video_clipper
+cd judo_tournament_video_clipper
+\`\`\`
+
+### 2. Configure the Environment
+\`\`\`bash
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+\`\`\`
+
+### 3. Install FFmpeg
+The pipeline relies on FFmpeg for frame extraction and lossless video clipping.
+1. Download the Windows essential build from [gyan.dev](https://www.gyan.dev/ffmpeg/builds/).
+2. Extract the archive and copy `ffmpeg.exe` and `ffprobe.exe` directly into the root folder of this repository (next to `app.py`).
+
+### 4. Execution
+With the environment activated and binaries in place, launch the UI natively:
+\`\`\`bash
+python app.py
+\`\`\`
+To compile a standalone executable, run:
+\`\`\`bash
+pyinstaller --noconfirm --onedir --console --collect-all pyspark --collect-all ultralytics --name "Judo_AI_Clipper_v1.1.9" app.py
+\`\`\`
+
+# Original README and Note
+
+The following section contains out of date information regarding the function of the software but it is still recommended reading before building on top of the current work. This section includes the work of the original creators of the program and will help to understand the function and how we arrived at the current version of the program.
+
+## judo-footage-analysis
 
 This repository is work supporting "Semi-Supervised Extraction and Analysis of Judo Combat Phases
 from Recorded Live-Streamed Tournament Footage".

@@ -23,7 +23,7 @@ dist/
 *.spec
 
 # Machine Learning Models
-*.pt
+
 
 # Data and Video Folders
 Judo_Pipeline/
