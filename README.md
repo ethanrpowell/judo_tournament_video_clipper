@@ -4,11 +4,6 @@ An automated, event-driven video processing pipeline. This software ingests long
 
 **If you are looking for a ready-to-run app; download, unzip, and run the .exe: [Google Drive Link](https://drive.google.com/file/d/1wNeVxSq_D55Yg9EKilDD0E8N_wfdeunV/view?usp=sharing)**
 
-## System Requirements
-* **OS:** Windows 10/11
-* **Python:** 3.9+
-* **Hardware:** NVIDIA GPU (minimum 8GB VRAM) recommended for PyTorch/YOLO inference.
-
 ## Setup Instructions
 
 ### 1. Clone the Repository
