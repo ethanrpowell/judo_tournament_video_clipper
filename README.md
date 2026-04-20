@@ -2,7 +2,7 @@
 
 An automated, event-driven video processing pipeline. This software ingests long-form tournament footage and utilizes a custom YOLOv8 model to automatically cut match clips using Luigi and FFmpeg. 
 
-**If you are looking for a ready-to-run app; download, unzip, and run the .exe:**
+**If you are looking for a ready-to-run app; download, unzip, and run the .exe: [Google Drive Link](https://drive.google.com/file/d/1wNeVxSq_D55Yg9EKilDD0E8N_wfdeunV/view?usp=sharing)**
 
 ## System Requirements
 * **OS:** Windows 10/11
