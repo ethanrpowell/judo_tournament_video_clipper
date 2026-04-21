@@ -113,7 +113,7 @@ pyinstaller --noconfirm --onedir --console --collect-all pyspark --collect-all u
 ---
 # Original README and Note (Out of Date)
 
-**The following section contains out of date information** regarding the function of the software but it is still recommended reading before building on top of the current work. This section includes the work of the original creators of the program and will help to understand the function and how we arrived at the current version of the program.
+**The following section contains out of date information** regarding the function of the software but it is still recommended reading before building on top of the current work. This section includes the work of the original creators of the program and will help to understand the function and how we arrived at the current version of the tool.
 
 ### judo-footage-analysis
 
