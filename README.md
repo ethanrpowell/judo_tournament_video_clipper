@@ -4,6 +4,8 @@ An automated, event-driven video processing pipeline. This software ingests long
 
 **If you are looking for a ready-to-run app; download, unzip, and run the .exe: [Google Drive Link](https://drive.google.com/file/d/1wNeVxSq_D55Yg9EKilDD0E8N_wfdeunV/view?usp=sharing)**
 
+<img width="664" height="388" alt="gui_image" src="https://github.com/user-attachments/assets/804dd017-5989-4437-ac15-cdd32e104e71" />
+
 ## Setup Instructions
 
 ### 1. Clone the Repository
